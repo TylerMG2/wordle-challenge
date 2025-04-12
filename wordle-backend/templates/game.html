@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Challenge {{ game_id }}{% endblock %}
+
+{% block head %}
+    <style>
+        .game-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .guess-grid {
+            display: grid;
+            gap: 0.5rem;
+            margin: 2rem 0;
+        }
+
+        .word-row {
+            display: flex;
+            gap: 0.25rem;
+            justify-content: center;
+        }
+
+        .letter-tile {
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border: 2px solid #3a3a3c;
+            border-radius: 4px;
+        }
+
+        .letter-tile.correct {
+            background-color: #538d4e;
+            border-color: #538d4e;
+            color: white;
+        }
+
+        .letter-tile.present {
+            background-color: #b59f3b;
+            border-color: #b59f3b;
+            color: white;
+        }
+
+        .letter-tile.absent {
+            background-color: #3a3a3c;
+            color: white;
+        }
+
+        .status-info {
+            text-align: center;
+            margin: 1rem 0;
+            color: #818384;
+        }
+    </style>
+    <script src="/static/game.js"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="game-container">
+        <h1>Wordle Challenge</h1>
+        <div class="status-info">
+            Words: {{ num_words }} | Remaining Guesses: {{ max_guesses - guesses.len() }}
+        </div>
+
+        <div class="guess-grid">
+            {% for guess in guesses %}
+                <div class="word-row">
+                    {% for (word, results) in guess %}
+                        <div class="word-container">
+                            {% for i in 0..word.len() %}
+                                {% let char = word.chars().nth(*i).unwrap_or(' ') %}
+                                {% let result = results.get(*i) %}
+                                <div class="letter-tile">
+                                    {{ char }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if guesses|length < max_guesses %}
+            <form 
+                hx-post="/guess"
+                hx-target=".guess-grid"
+                hx-swap="outerHTML"
+                class="guess-form"
+            >
+                <input type="hidden" name="game_id" value="{{ game_id }}">
+                <div class="input-row">
+                    {% for _ in 0..num_words %}
+                        <input 
+                            type="text" 
+                            name="guess[]"
+                            pattern="[A-Za-z]{5}"
+                            maxlength="5"
+                            required
+                            class="word-input"
+                        >
+                    {% endfor %}
+                </div>
+                <button type="submit" class="submit-button">
+                    Submit Guess
+                </button>
+            </form>
+        {% endif %}
+    </div>
+{% endblock %}

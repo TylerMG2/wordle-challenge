@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Wordle Challenge{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://unpkg.com/htmx.org"></script>
+    <script src="/static/config.js"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    <!-- Shared footer JS -->
+    <script>
+        // Initialize common functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            initLocalStorage();
+        });
+
+        function initLocalStorage() {
+            if (!localStorage.getItem('userId')) {
+                localStorage.setItem('userId', crypto.randomUUID());
+            }
+        }
+
+        // Attach the user ID to all HTMX requests
+        document.addEventListener('htmx:beforeRequest', (e) => {
+            if (userId) {
+                e.detail.headers['X-User-ID'] = localStorage.getItem('userId');
+            }
+        });
+    </script>
+</body>
+</html>

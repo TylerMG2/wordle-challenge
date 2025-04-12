@@ -1,36 +1,84 @@
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use actix_web::web;
-use serde::{Deserialize, Serialize};
+use actix_files::Files;
+use actix_web::{App, HttpServer, web};
 use tokio::sync::RwLock;
 
+mod handlers;
+mod middleware;
+mod pages;
 mod words;
 
-fn main() {
-    println!("Hello, world!");
+#[derive(Debug, Clone)]
+enum LetterResult {
+    CorrectPosition,
+    InWordDifferentPosition,
+    NotInWord,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl ToString for LetterResult {
+    fn to_string(&self) -> String {
+        match self {
+            LetterResult::CorrectPosition => "correct".to_string(),
+            LetterResult::InWordDifferentPosition => "present".to_string(),
+            LetterResult::NotInWord => "absent".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 struct Player {
-    id: u32,
-    guesses: Vec<String>,
+    guesses: Vec<Vec<(String, Vec<LetterResult>)>>,
     solved: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Challenge {
-    id: u32,
+#[derive(Debug, Clone)]
+struct Game {
     words: Vec<String>,
     max_guesses: usize,
     created_at: Instant,
-    players: Vec<Player>,
+    players: HashMap<String, Player>,
 }
 
 struct AppState {
-    challenges: Arc<RwLock<HashMap<String, Challenge>>>,
+    games: Arc<RwLock<HashMap<String, Game>>>,
 }
 
-async fn create_challenge(
-    data: web::Data<AppState>,
-    form: web::Form<>
-)
+// Task that runs every hour to clean up games older than 24 hours
+async fn game_cleaner(data: web::Data<AppState>) {
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3600));
+    loop {
+        interval.tick().await;
+        let mut challenges = data.games.write().await;
+        challenges.retain(|_, c| c.created_at.elapsed() < Duration::from_secs(86400));
+    }
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let state = web::Data::new(AppState {
+        games: Arc::new(RwLock::new(HashMap::new())),
+    });
+
+    // Start the games cleaner task
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        game_cleaner(state_clone).await;
+    });
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(state.clone())
+            .service(Files::new("/static", "./static").prefer_utf8(true))
+            .route("/", web::get().to(pages::create_page))
+            .route("/game/{game_id}", web::get().to(pages::game_page))
+            .route("/create", web::post().to(handlers::create_game))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}

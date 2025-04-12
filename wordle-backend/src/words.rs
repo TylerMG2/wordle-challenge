@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use rand::prelude::IndexedRandom;
 use std::{collections::HashMap, fs};
 
 lazy_static! {
@@ -16,8 +17,6 @@ lazy_static! {
 }
 
 pub fn get_random_words(length: u8, count: usize) -> Vec<String> {
-    use rand::prelude::IndexedRandom;
-
     let mut rng = rand::rng();
     WORDS
         .get(&length)
